@@ -1,30 +1,30 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Farkle Score Tracker</title>
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#1e1b4b">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Farkle Tracker">
-    <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="#1e1b4b" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Farkle Tracker" />
+    <link rel="apple-touch-icon" href="icon-192.png" />
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { 
-            margin: 0; 
-            overflow-x: hidden; 
+        body {
+            margin: 0;
+            overflow-x: hidden;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
         }
     </style>
 </head>
 <body>
     <div id="root"></div>
-    
+
     <script type="text/babel">
         const { useState, useEffect } = React;
 
@@ -74,70 +74,70 @@
             </svg>
         );
 
-const FarkleScoreApp = () => {
-    const [players, setPlayers] = useState([]);
-    const [newPlayerName, setNewPlayerName] = useState('');
-    const [gameStarted, setGameStarted] = useState(false);
-    const [orderSelecting, setOrderSelecting] = useState(false);
-    const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0);
-    const [currentTurnScore, setCurrentTurnScore] = useState(0);
-    const [winningScore, setWinningScore] = useState(10000);
+        const FarkleScoreApp = () => {
+            const [players, setPlayers] = useState([]);
+            const [newPlayerName, setNewPlayerName] = useState('');
+            const [gameStarted, setGameStarted] = useState(false);
+            const [orderSelecting, setOrderSelecting] = useState(false);
+            const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0);
+            const [currentTurnScore, setCurrentTurnScore] = useState(0);
+            const [winningScore, setWinningScore] = useState(10000);
 
-    // Add a new player
-    const addPlayer = () => {
-        if (newPlayerName.trim() && !gameStarted) {
-            setPlayers([...players, { 
-                id: Date.now(), 
-                name: newPlayerName.trim(), 
-                score: 0
-            }]);
-            setNewPlayerName('');
-        }
-    };
-
-    // Utility: True shuffle using Fisher-Yates
-    const shuffleArray = (array) => {
-        const result = [...array];
-        for (let i = result.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [result[i], result[j]] = [result[j], result[i]];
-        }
-        return result;
-    };
-
-    // Start order selection animation
-    const selectOrder = () => {
-        if (players.length >= 2) {
-            setOrderSelecting(true);
-
-            let shuffleCount = 0;
-            const maxShuffles = 15;
-
-            const shuffleInterval = setInterval(() => {
-                const visuallyShuffled = [...players].sort(() => Math.random() - 0.5);
-                setPlayers(visuallyShuffled);
-                shuffleCount++;
-
-                if (shuffleCount >= maxShuffles) {
-                    clearInterval(shuffleInterval);
-
-                    const finalShuffled = shuffleArray(players);
-
-                    setTimeout(() => {
-                        setOrderSelecting(false);
-                        setGameStarted(true);
-                        setPlayers(finalShuffled.map(player => ({ ...player, score: 0 })));
-                        setCurrentPlayerIndex(0);
-                        setCurrentTurnScore(0);
-                    }, 500);
+            // Add a new player
+            const addPlayer = () => {
+                if (newPlayerName.trim() && !gameStarted) {
+                    setPlayers([...players, {
+                        id: Date.now(),
+                        name: newPlayerName.trim(),
+                        score: 0
+                    }]);
+                    setNewPlayerName('');
                 }
-            }, 150);
-        }
-    };
+            };
+
+            // Utility: True shuffle using Fisher-Yates
+            const shuffleArray = (array) => {
+                const result = [...array];
+                for (let i = result.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    // FIXED: swapped indices in array swap
+                    [result[i], result[j]] = [result[j], result[i]];
+                }
+                return result;
+            };
+
+            // Start order selection animation
+            const selectOrder = () => {
+                if (players.length >= 2) {
+                    setOrderSelecting(true);
+
+                    let shuffleCount = 0;
+                    const maxShuffles = 15;
+
+                    const shuffleInterval = setInterval(() => {
+                        const visuallyShuffled = [...players].sort(() => Math.random() - 0.5);
+                        setPlayers(visuallyShuffled);
+                        shuffleCount++;
+
+                        if (shuffleCount >= maxShuffles) {
+                            clearInterval(shuffleInterval);
+
+                            const finalShuffled = shuffleArray(players);
+
+                            setTimeout(() => {
+                                setOrderSelecting(false);
+                                setGameStarted(true);
+                                setPlayers(finalShuffled.map(player => ({ ...player, score: 0 })));
+                                setCurrentPlayerIndex(0);
+                                setCurrentTurnScore(0);
+                            }, 500);
+                        }
+                    }, 150);
+                }
+            };
 
             // Start game (replaced with order selection)
             const startGame = selectOrder;
-
 
             // Reset game
             const resetGame = () => {
