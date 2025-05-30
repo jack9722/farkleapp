@@ -14,10 +14,6 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Add Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <style>
         body { 
             margin: 0; 
@@ -31,19 +27,6 @@
 
     <script type="text/babel">
         const { useState, useEffect } = React;
-
-        // Initialize Firebase with the provided config
-        const firebaseConfig = {
-            apiKey: "AIzaSyB1icTUb7XlprSytZKEJreneb1EyfbACCI",
-            authDomain: "farklescoretracker.firebaseapp.com",
-            projectId: "farklescoretracker",
-            storageBucket: "farklescoretracker.firebasestorage.app",
-            messagingSenderId: "838671539834",
-            appId: "1:838671539834:web:025bf412be8a817e4825c3"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-        const auth = firebase.auth();
 
         // Lucide React icons as components
         const Plus = () => (
@@ -92,11 +75,6 @@
         );
 
         const FarkleScoreApp = () => {
-            const [mode, setMode] = useState(null); // null, "offline", "host", "join"
-            const [roomCode, setRoomCode] = useState('');
-            const [username, setUsername] = useState('');
-            const [deviceId, setDeviceId] = useState('');
-            const [gameState, setGameState] = useState(null);
             const [players, setPlayers] = useState([]);
             const [newPlayerName, setNewPlayerName] = useState('');
             const [gameStarted, setGameStarted] = useState(false);
@@ -105,116 +83,8 @@
             const [currentTurnScore, setCurrentTurnScore] = useState(0);
             const [winningScore, setWinningScore] = useState(10000);
             const [turnOrder, setTurnOrder] = useState([]);
-            const [error, setError] = useState('');
 
-            // Sign in anonymously to get a device ID
-            useEffect(() => {
-                auth.signInAnonymously()
-                    .then((userCredential) => {
-                        setDeviceId(userCredential.user.uid);
-                    })
-                    .catch((error) => {
-                        console.error("Anonymous auth failed:", error);
-                    });
-            }, []);
-
-            // Host a game
-            const hostGame = async () => {
-                if (!username.trim()) {
-                    setError("Please enter a username");
-                    return;
-                }
-                setError('');
-                try {
-                    const gameRef = await db.collection('games').add({
-                        winningScore: winningScore,
-                        currentPlayerIndex: 0,
-                        players: [{ id: deviceId, username: username.trim(), score: 0 }],
-                        turnOrder: [deviceId],
-                        currentTurnScore: 0,
-                        gameStarted: false
-                    });
-                    setRoomCode(gameRef.id);
-                    setMode('host');
-                    // Listen for game state updates
-                    gameRef.onSnapshot((snapshot) => {
-                        const data = snapshot.data();
-                        if (data) {
-                            setGameState(data);
-                            setPlayers(data.players || []);
-                            setTurnOrder(data.turnOrder || []);
-                            setCurrentPlayerIndex(data.currentPlayerIndex || 0);
-                            setCurrentTurnScore(data.currentTurnScore || 0);
-                            setGameStarted(data.gameStarted || false);
-                        }
-                    });
-                } catch (err) {
-                    setError("Failed to create game: " + err.message);
-                }
-            };
-
-            // Join a game
-            const joinGame = async () => {
-                if (!roomCode.trim() || !username.trim()) {
-                    setError("Please enter both a room code and username");
-                    return;
-                }
-                setError('');
-                try {
-                    const gameRef = db.collection('games').doc(roomCode.trim());
-                    const gameDoc = await gameRef.get();
-                    if (!gameDoc.exists) {
-                        setError("Room code not found");
-                        return;
-                    }
-                    const gameData = gameDoc.data();
-                    if (gameData.gameStarted) {
-                        setError("Game has already started");
-                        return;
-                    }
-                    const newPlayer = { id: deviceId, username: username.trim(), score: 0 };
-                    await gameRef.update({
-                        players: [...gameData.players, newPlayer],
-                        turnOrder: [...gameData.turnOrder, deviceId]
-                    });
-                    setMode('join');
-                    // Listen for game state updates
-                    gameRef.onSnapshot((snapshot) => {
-                        const data = snapshot.data();
-                        if (data) {
-                            setGameState(data);
-                            setPlayers(data.players || []);
-                            setTurnOrder(data.turnOrder || []);
-                            setCurrentPlayerIndex(data.currentPlayerIndex || 0);
-                            setCurrentTurnScore(data.currentTurnScore || 0);
-                            setGameStarted(data.gameStarted || false);
-                        }
-                    });
-                } catch (err) {
-                    setError("Failed to join game: " + err.message);
-                }
-            };
-
-            // Start the online game (host only)
-            const startOnlineGame = async () => {
-                if (players.length < 2) {
-                    setError("Need at least 2 players to start");
-                    return;
-                }
-                setError('');
-                try {
-                    const gameRef = db.collection('games').doc(roomCode);
-                    await gameRef.update({
-                        gameStarted: true,
-                        currentPlayerIndex: 0,
-                        currentTurnScore: 0
-                    });
-                } catch (err) {
-                    setError("Failed to start game: " + err.message);
-                }
-            };
-
-            // Offline mode functions (unchanged)
+            // Add a new player
             const addPlayer = () => {
                 if (newPlayerName.trim() && !gameStarted) {
                     setPlayers([...players, { 
@@ -226,17 +96,24 @@
                 }
             };
 
+            // Start order selection animation
             const selectOrder = () => {
                 if (players.length >= 2) {
                     setOrderSelecting(true);
+
+                    // Animate the selection process
                     let shuffleCount = 0;
                     const maxShuffles = 15;
+
                     const shuffleInterval = setInterval(() => {
+                        // Shuffle players array
                         const shuffled = [...players].sort(() => Math.random() - 0.5);
                         setPlayers(shuffled);
                         shuffleCount++;
+
                         if (shuffleCount >= maxShuffles) {
                             clearInterval(shuffleInterval);
+                            // Final shuffle and start game
                             setTimeout(() => {
                                 setOrderSelecting(false);
                                 setGameStarted(true);
@@ -250,8 +127,10 @@
                 }
             };
 
+            // Start game (replaced with order selection)
             const startGame = selectOrder;
 
+            // Reset game
             const resetGame = () => {
                 setGameStarted(false);
                 setOrderSelecting(false);
@@ -259,79 +138,47 @@
                 setTurnOrder([]);
                 setCurrentPlayerIndex(0);
                 setCurrentTurnScore(0);
-                if (mode === 'host' || mode === 'join') {
-                    setMode(null);
-                    setRoomCode('');
-                    setUsername('');
-                    setGameState(null);
-                }
             };
 
-            // Update turn score (online and offline)
-            const updateTurnScore = async (points) => {
-                const newScore = Math.max(0, currentTurnScore + points);
-                if (mode === 'offline') {
-                    setCurrentTurnScore(newScore);
-                } else {
-                    const gameRef = db.collection('games').doc(roomCode);
-                    await gameRef.update({ currentTurnScore: newScore });
-                }
+            // Update current turn score
+            const updateTurnScore = (points) => {
+                setCurrentTurnScore(Math.max(0, currentTurnScore + points));
             };
 
             // Bank score and move to next player
-            const bankAndNext = async () => {
-                if (mode === 'offline') {
-                    const updatedPlayers = [...players];
-                    updatedPlayers[currentPlayerIndex].score += currentTurnScore;
-                    setPlayers(updatedPlayers);
-                    nextPlayer();
-                } else {
-                    const gameRef = db.collection('games').doc(roomCode);
-                    const player = players[currentPlayerIndex];
-                    const updatedPlayers = [...players];
-                    updatedPlayers[currentPlayerIndex] = { ...player, score: player.score + currentTurnScore };
-                    const nextIndex = (currentPlayerIndex + 1) % players.length;
-                    await gameRef.update({
-                        players: updatedPlayers,
-                        currentPlayerIndex: nextIndex,
-                        currentTurnScore: 0
-                    });
-                }
+            const bankAndNext = () => {
+                const updatedPlayers = [...players];
+                updatedPlayers[currentPlayerIndex].score += currentTurnScore;
+                setPlayers(updatedPlayers);
+                nextPlayer();
             };
 
             // Farkle and move to next player
-            const farkleAndNext = async () => {
-                if (mode === 'offline') {
-                    nextPlayer();
-                } else {
-                    const gameRef = db.collection('games').doc(roomCode);
-                    const nextIndex = (currentPlayerIndex + 1) % players.length;
-                    await gameRef.update({
-                        currentPlayerIndex: nextIndex,
-                        currentTurnScore: 0
-                    });
-                }
+            const farkleAndNext = () => {
+                nextPlayer();
             };
 
+            // Move to next player
             const nextPlayer = () => {
                 setCurrentTurnScore(0);
                 setCurrentPlayerIndex((currentPlayerIndex + 1) % players.length);
             };
 
+            // Get current player
             const currentPlayer = players[currentPlayerIndex];
+
+            // Sort players by score for leaderboard
             const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
             const leader = sortedPlayers[0];
+
+            // Check for winner
             const winner = players.find(player => player.score >= winningScore);
 
+            // Calculate standings
             const getStanding = (player) => {
                 const rank = sortedPlayers.findIndex(p => p.id === player.id) + 1;
                 const behindBy = leader && leader.id !== player.id ? leader.score - player.score : 0;
                 return { rank, behindBy };
-            };
-
-            const isMyTurn = () => {
-                if (mode === 'offline') return true;
-                return turnOrder[currentPlayerIndex] === deviceId;
             };
 
             return (
@@ -345,200 +192,70 @@
                     </div>
 
                     <div className="p-4 space-y-4 pb-24">
-                        {/* Mode Selection Screen */}
-                        {!mode && (
-                            <div className="bg-white/10 backdrop-blur-md rounded-lg p-4 border border-white/20">
-                                <h2 className="text-white text-lg font-bold mb-4">Select Mode</h2>
-                                <button
-                                    onClick={() => setMode('offline')}
-                                    className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors mb-2"
-                                >
-                                    Offline Mode (Single Device)
-                                </button>
-                                <button
-                                    onClick={() => setMode('host')}
-                                    className="w-full py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors mb-2"
-                                >
-                                    Host Online Game
-                                </button>
-                                <button
-                                    onClick={() => setMode('join')}
-                                    className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors"
-                                >
-                                    Join Online Game
-                                </button>
-                            </div>
-                        )}
+                        {!gameStarted && !orderSelecting ? (
+                            // Setup Screen
+                            <>
+                                <div className="bg-white/10 backdrop-blur-md rounded-lg p-4 border border-white/20">
+                                    <div className="mb-4">
+                                        <label className="block text-white font-medium mb-2">Winning Score</label>
+                                        <input
+                                            type="number"
+                                            value={winningScore}
+                                            onChange={(e) => setWinningScore(parseInt(e.target.value) || 10000)}
+                                            className="w-full px-3 py-2 rounded bg-white/20 text-white placeholder-white/50 border border-white/30"
+                                        />
+                                    </div>
 
-                        {/* Host Game Screen */}
-                        {mode === 'host' && !gameStarted && (
-                            <div className="bg-white/10 backdrop-blur-md rounded-lg p-4 border border-white/20">
-                                {!roomCode ? (
-                                    <>
-                                        <div className="mb-4">
-                                            <label className="block text-white font-medium mb-2">Your Username</label>
+                                    <div className="mb-4">
+                                        <label className="block text-white font-medium mb-2">Add Players</label>
+                                        <div className="flex gap-2">
                                             <input
                                                 type="text"
-                                                value={username}
-                                                onChange={(e) => setUsername(e.target.value)}
-                                                placeholder="Enter your username"
-                                                className="w-full px-3 py-2 rounded bg-white/20 text-white placeholder-white/50 border border-white/30"
+                                                value={newPlayerName}
+                                                onChange={(e) => setNewPlayerName(e.target.value)}
+                                                onKeyPress={(e) => e.key === 'Enter' && addPlayer()}
+                                                placeholder="Player name"
+                                                className="flex-1 px-3 py-2 rounded bg-white/20 text-white placeholder-white/50 border border-white/30"
                                             />
+                                            <button
+                                                onClick={addPlayer}
+                                                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded font-medium transition-colors"
+                                            >
+                                                <Plus />
+                                            </button>
                                         </div>
-                                        <div className="mb-4">
-                                            <label className="block text-white font-medium mb-2">Winning Score</label>
-                                            <input
-                                                type="number"
-                                                value={winningScore}
-                                                onChange={(e) => setWinningScore(parseInt(e.target.value) || 10000)}
-                                                className="w-full px-3 py-2 rounded bg-white/20 text-white placeholder-white/50 border border-white/30"
-                                            />
-                                        </div>
-                                        {error && <p className="text-red-400 mb-2">{error}</p>}
-                                        <button
-                                            onClick={hostGame}
-                                            className="w-full py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold transition-colors"
-                                        >
-                                            Create Game
-                                        </button>
-                                    </>
-                                ) : (
-                                    <>
-                                        <h2 className="text-white text-lg font-bold mb-4">Room Code: {roomCode}</h2>
-                                        <p className="text-white mb-2">Share this code with others to join!</p>
+                                    </div>
+
+                                    {players.length > 0 && (
                                         <div className="mb-4">
                                             <h3 className="text-white font-medium mb-2">Players ({players.length})</h3>
                                             <div className="space-y-2">
                                                 {players.map((player, index) => (
                                                     <div key={player.id} className="flex items-center justify-between bg-white/10 rounded p-2">
-                                                        <span className="text-white">{index + 1}. {player.username}</span>
+                                                        <span className="text-white">{index + 1}. {player.name}</span>
+                                                        <button
+                                                            onClick={() => setPlayers(players.filter(p => p.id !== player.id))}
+                                                            className="text-red-400 hover:text-red-300 px-2 py-1"
+                                                        >
+                                                            ×
+                                                        </button>
                                                     </div>
                                                 ))}
                                             </div>
                                         </div>
-                                        {error && <p className="text-red-400 mb-2">{error}</p>}
-                                        <button
-                                            onClick={startOnlineGame}
-                                            className="w-full py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold transition-colors"
-                                        >
-                                            Start Game
-                                        </button>
-                                    </>
-                                )}
-                            </div>
-                        )}
+                                    )}
 
-                        {/* Join Game Screen */}
-                        {mode === 'join' && !gameStarted && (
-                            <div className="bg-white/10 backdrop-blur-md rounded-lg p-4 border border-white/20">
-                                {!roomCode ? (
-                                    <>
-                                        <div className="mb-4">
-                                            <label className="block text-white font-medium mb-2">Room Code</label>
-                                            <input
-                                                type="text"
-                                                value={roomCode}
-                                                onChange={(e) => setRoomCode(e.target.value)}
-                                                placeholder="Enter room code"
-                                                className="w-full px-3 py-2 rounded bg-white/20 text-white placeholder-white/50 border border-white/30"
-                                            />
-                                        </div>
-                                        <div className="mb-4">
-                                            <label className="block text-white font-medium mb-2">Your Username</label>
-                                            <input
-                                                type="text"
-                                                value={username}
-                                                onChange={(e) => setUsername(e.target.value)}
-                                                placeholder="Enter your username"
-                                                className="w-full px-3 py-2 rounded bg-white/20 text-white placeholder-white/50 border border-white/30"
-                                            />
-                                        </div>
-                                        {error && <p className="text-red-400 mb-2">{error}</p>}
-                                        <button
-                                            onClick={joinGame}
-                                            className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-bold transition-colors"
-                                        >
-                                            Join Game
-                                        </button>
-                                    </>
-                                ) : (
-                                    <div className="text-center">
-                                        <h2 className="text-white text-lg font-bold mb-4">Waiting for Host to Start...</h2>
-                                        <p className="text-white mb-2">Room Code: {roomCode}</p>
-                                        <div className="flex items-center justify-center gap-2 text-white/70">
-                                            <div className="w-2 h-2 bg-white rounded-full animate-bounce"></div>
-                                            <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
-                                            <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        {/* Offline Setup Screen */}
-                        {mode === 'offline' && !gameStarted && !orderSelecting && (
-                            <div className="bg-white/10 backdrop-blur-md rounded-lg p-4 border border-white/20">
-                                <div className="mb-4">
-                                    <label className="block text-white font-medium mb-2">Winning Score</label>
-                                    <input
-                                        type="number"
-                                        value={winningScore}
-                                        onChange={(e) => setWinningScore(parseInt(e.target.value) || 10000)}
-                                        className="w-full px-3 py-2 rounded bg-white/20 text-white placeholder-white/50 border border-white/30"
-                                    />
+                                    <button
+                                        onClick={startGame}
+                                        disabled={players.length < 2}
+                                        className="w-full py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg font-bold text-lg transition-colors"
+                                    >
+                                        {players.length < 2 ? 'Need 2+ Players' : 'Randomize Turn Order & Start!'}
+                                    </button>
                                 </div>
-
-                                <div className="mb-4">
-                                    <label className="block text-white font-medium mb-2">Add Players</label>
-                                    <div className="flex gap-2">
-                                        <input
-                                            type="text"
-                                            value={newPlayerName}
-                                            onChange={(e) => setNewPlayerName(e.target.value)}
-                                            onKeyPress={(e) => e.key === 'Enter' && addPlayer()}
-                                            placeholder="Player name"
-                                            className="flex-1 px-3 py-2 rounded bg-white/20 text-white placeholder-white/50 border border-white/30"
-                                        />
-                                        <button
-                                            onClick={addPlayer}
-                                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded font-medium transition-colors"
-                                        >
-                                            <Plus />
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {players.length > 0 && (
-                                    <div className="mb-4">
-                                        <h3 className="text-white font-medium mb-2">Players ({players.length})</h3>
-                                        <div className="space-y-2">
-                                            {players.map((player, index) => (
-                                                <div key={player.id} className="flex items-center justify-between bg-white/10 rounded p-2">
-                                                    <span className="text-white">{index + 1}. {player.name}</span>
-                                                    <button
-                                                        onClick={() => setPlayers(players.filter(p => p.id !== player.id))}
-                                                        className="text-red-400 hover:text-red-300 px-2 py-1"
-                                                    >
-                                                        ×
-                                                    </button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-
-                                <button
-                                    onClick={startGame}
-                                    disabled={players.length < 2}
-                                    className="w-full py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg font-bold text-lg transition-colors"
-                                >
-                                    {players.length < 2 ? 'Need 2+ Players' : 'Randomize Turn Order & Start!'}
-                                </button>
-                            </div>
-                        )}
-
-                        {/* Order Selection Animation (Offline Mode) */}
-                        {mode === 'offline' && orderSelecting && (
+                            </>
+                        ) : orderSelecting ? (
+                            // Order Selection Animation
                             <div className="bg-white/10 backdrop-blur-md rounded-lg p-6 border border-white/20 text-center">
                                 <div className="mb-4">
                                     <h2 className="text-2xl font-bold text-white mb-2">🎲 Selecting Turn Order 🎲</h2>
@@ -571,16 +288,14 @@
                                     <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
                                 </div>
                             </div>
-                        )}
-
-                        {/* Game Screen (Offline and Online) */}
-                        {(gameStarted || (mode !== 'offline' && gameState?.gameStarted)) && (
+                        ) : (
+                            // Game Screen
                             <>
                                 {/* Winner Announcement */}
                                 {winner && (
                                     <div className="bg-gradient-to-r from-yellow-400 to-orange-500 rounded-lg p-4 text-center">
                                         <Crown size={32} />
-                                        <h2 className="text-xl font-bold text-white">🎉 {mode === 'offline' ? winner.name : winner.username} Wins! 🎉</h2>
+                                        <h2 className="text-xl font-bold text-white">🎉 {winner.name} Wins! 🎉</h2>
                                         <p className="text-white">{winner.score.toLocaleString()} points</p>
                                     </div>
                                 )}
@@ -592,20 +307,19 @@
                                             <h2 className="text-white font-bold text-lg">Turn Order</h2>
                                         </div>
                                         <div className="space-y-1">
-                                            {turnOrder.map((playerId, index) => {
-                                                const player = players.find(p => p.id === playerId);
+                                            {turnOrder.map((player, index) => {
                                                 const isCurrentPlayer = index === currentPlayerIndex;
                                                 const isNextPlayer = index === (currentPlayerIndex + 1) % turnOrder.length;
                                                 return (
                                                     <div
-                                                        key={playerId}
+                                                        key={player.id}
                                                         className={`p-2 flex items-center justify-between ${
                                                             isCurrentPlayer ? 'bg-blue-500/30 border-l-4 border-blue-400' : ''
                                                         } ${isNextPlayer ? 'bg-green-500/20' : ''}`}
                                                     >
                                                         <div className="flex items-center gap-2">
                                                             <span className="text-white font-medium">{index + 1}.</span>
-                                                            <span className="text-white font-medium">{mode === 'offline' ? player.name : player.username}</span>
+                                                            <span className="text-white font-medium">{player.name}</span>
                                                             {isCurrentPlayer && <span className="text-blue-300 text-sm">Current</span>}
                                                             {isNextPlayer && <span className="text-green-300 text-sm">Next</span>}
                                                         </div>
@@ -638,7 +352,7 @@
                                                             <span className="text-white font-medium text-sm">#{standing.rank}</span>
                                                         </div>
                                                         <div>
-                                                            <div className="text-white font-medium text-sm">{mode === 'offline' ? player.name : player.username}</div>
+                                                            <div className="text-white font-medium text-sm">{player.name}</div>
                                                             {standing.behindBy > 0 && (
                                                                 <div className="text-red-300 text-xs">-{standing.behindBy.toLocaleString()}</div>
                                                             )}
@@ -663,7 +377,7 @@
                                     <div className="bg-white/10 backdrop-blur-md rounded-lg border border-white/20">
                                         <div className="sticky top-0 bg-white/30 backdrop-blur-md rounded-t-lg border-b border-white/20 z-10">
                                             <div className="text-center p-4">
-                                                <h3 className="text-white text-xl font-bold">{mode === 'offline' ? currentPlayer.name : currentPlayer.username}'s Turn</h3>
+                                                <h3 className="text-white text-xl font-bold">{currentPlayer.name}'s Turn</h3>
                                                 <div className="mt-2 flex items-center justify-center space-x-4">
                                                     <div>
                                                         <div className="text-2xl font-bold text-green-400">
@@ -688,22 +402,19 @@
                                             <div className="grid grid-cols-3 gap-2">
                                                 <button
                                                     onClick={() => updateTurnScore(50)}
-                                                    disabled={!isMyTurn()}
-                                                    className={`py-3 bg-green-600/80 hover:bg-green-600 text-white rounded font-medium transition-colors text-sm ${!isMyTurn() ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                    className="py-3 bg-green-600/80 hover:bg-green-600 text-white rounded font-medium transition-colors text-sm"
                                                 >
                                                     Single 5<br />+50
                                                 </button>
                                                 <button
                                                     onClick={() => updateTurnScore(100)}
-                                                    disabled={!isMyTurn()}
-                                                    className={`py-3 bg-green-600/80 hover:bg-green-600 text-white rounded font-medium transition-colors text-sm ${!isMyTurn() ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                    className="py-3 bg-green-600/80 hover:bg-green-600 text-white rounded font-medium transition-colors text-sm"
                                                 >
                                                     Single 1<br />+100
                                                 </button>
                                                 <button
                                                     onClick={() => updateTurnScore(750)}
-                                                    disabled={!isMyTurn()}
-                                                    className={`py-3 bg-green-600/80 hover:bg-green-600 text-white rounded font-medium transition-colors text-sm ${!isMyTurn() ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                    className="py-3 bg-green-600/80 hover:bg-green-600 text-white rounded font-medium transition-colors text-sm"
                                                 >
                                                     Three 1s<br />+750
                                                 </button>
@@ -713,22 +424,19 @@
                                             <div className="grid grid-cols-3 gap-2">
                                                 <button
                                                     onClick={() => updateTurnScore(200)}
-                                                    disabled={!isMyTurn()}
-                                                    className={`py-3 bg-green-600/80 hover:bg-green-600 text-white rounded font-medium transition-colors text-sm ${!isMyTurn() ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                    className="py-3 bg-green-600/80 hover:bg-green-600 text-white rounded font-medium transition-colors text-sm"
                                                 >
                                                     Three 2s<br />+200
                                                 </button>
                                                 <button
                                                     onClick={() => updateTurnScore(300)}
-                                                    disabled={!isMyTurn()}
-                                                    className={`py-3 bg-green-600/80 hover:bg-green-600 text-white rounded font-medium transition-colors text-sm ${!isMyTurn() ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                    className="py-3 bg-green-600/80 hover:bg-green-600 text-white rounded font-medium transition-colors text-sm"
                                                 >
                                                     Three 3s<br />+300
                                                 </button>
                                                 <button
                                                     onClick={() => updateTurnScore(400)}
-                                                    disabled={!isMyTurn()}
-                                                    className={`py-3 bg-green-600/80 hover:bg-green-600 text-white rounded font-medium transition-colors text-sm ${!isMyTurn() ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                    className="py-3 bg-green-600/80 hover:bg-green-600 text-white rounded font-medium transition-colors text-sm"
                                                 >
                                                     Three 4s<br />+400
                                                 </button>
@@ -737,15 +445,13 @@
                                             <div className="grid grid-cols-2 gap-2">
                                                 <button
                                                     onClick={() => updateTurnScore(500)}
-                                                    disabled={!isMyTurn()}
-                                                    className={`py-3 bg-green-600/80 hover:bg-green-600 text-white rounded font-medium transition-colors text-sm ${!isMyTurn() ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                    className="py-3 bg-green-600/80 hover:bg-green-600 text-white rounded font-medium transition-colors text-sm"
                                                 >
                                                     Three 5s<br />+500
                                                 </button>
                                                 <button
                                                     onClick={() => updateTurnScore(600)}
-                                                    disabled={!isMyTurn()}
-                                                    className={`py-3 bg-green-600/80 hover:bg-green-600 text-white rounded font-medium transition-colors text-sm ${!isMyTurn() ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                    className="py-3 bg-green-600/80 hover:bg-green-600 text-white rounded font-medium transition-colors text-sm"
                                                 >
                                                     Three 6s<br />+600
                                                 </button>
@@ -755,22 +461,19 @@
                                             <div className="grid grid-cols-2 gap-2">
                                                 <button
                                                     onClick={() => updateTurnScore(150)}
-                                                    disabled={!isMyTurn()}
-                                                    className={`py-3 bg-blue-600/80 hover:bg-blue-600 text-white rounded font-medium transition-colors text-sm ${!isMyTurn() ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                    className="py-3 bg-blue-600/80 hover:bg-blue-600 text-white rounded font-medium transition-colors text-sm"
                                                 >
                                                     Micro Straight<br />+150
                                                 </button>
                                                 <button
                                                     onClick={() => updateTurnScore(1000)}
-                                                    disabled={!isMyTurn()}
-                                                    className={`py-3 bg-blue-600/80 hover:bg-blue-600 text-white rounded font-medium transition-colors text-sm ${!isMyTurn() ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                    className="py-3 bg-blue-600/80 hover:bg-blue-600 text-white rounded font-medium transition-colors text-sm"
                                                 >
                                                     Small Straight<br />+1000
                                                 </button>
-                                                <button
+                                                    <button
                                                     onClick={() => updateTurnScore(1500)}
-                                                    disabled={!isMyTurn()}
-                                                    className={`py-3 bg-blue-600/80 hover:bg-blue-600 text-white rounded font-medium transition-colors text-sm col-span-2 ${!isMyTurn() ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                    className="py-3 bg-blue-600/80 hover:bg-blue-600 text-white rounded font-medium transition-colors text-sm col-span-2"
                                                 >
                                                     Straight<br />+1500
                                                 </button>
@@ -780,15 +483,13 @@
                                             <div className="grid grid-cols-2 gap-2">
                                                 <button
                                                     onClick={() => updateTurnScore(1500)}
-                                                    disabled={!isMyTurn()}
-                                                    className={`py-3 bg-purple-600/80 hover:bg-purple-600 text-white rounded font-medium transition-colors text-sm ${!isMyTurn() ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                    className="py-3 bg-purple-600/80 hover:bg-purple-600 text-white rounded font-medium transition-colors text-sm"
                                                 >
                                                     Four of Kind<br />+1500
                                                 </button>
                                                 <button
                                                     onClick={() => updateTurnScore(2000)}
-                                                    disabled={!isMyTurn()}
-                                                    className={`py-3 bg-purple-600/80 hover:bg-purple-600 text-white rounded font-medium transition-colors text-sm ${!isMyTurn() ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                    className="py-3 bg-purple-600/80 hover:bg-purple-600 text-white rounded font-medium transition-colors text-sm"
                                                 >
                                                     Five of Kind<br />+2000
                                                 </button>
@@ -796,8 +497,7 @@
 
                                             <button
                                                 onClick={() => updateTurnScore(3000)}
-                                                disabled={!isMyTurn()}
-                                                className={`w-full py-3 bg-purple-600/80 hover:bg-purple-600 text-white rounded font-medium transition-colors ${!isMyTurn() ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                className="w-full py-3 bg-purple-600/80 hover:bg-purple-600 text-white rounded font-medium transition-colors"
                                             >
                                                 Six of a Kind<br />+3000
                                             </button>
@@ -806,32 +506,19 @@
                                             <div className="grid grid-cols-2 gap-2">
                                                 <button
                                                     onClick={() => updateTurnScore(-50)}
-                                                    disabled={!isMyTurn()}
-                                                    className={`py-3 bg-yellow-600/80 hover:bg-yellow-600 text-white rounded font-medium transition-colors text-sm ${!isMyTurn() ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                    className="py-3 bg-yellow-600/80 hover:bg-yellow-600 text-white rounded font-medium transition-colors text-sm"
                                                 >
                                                     Undo<br />-50
                                                 </button>
                                                 <button
-                                                    onClick={async () => {
-                                                        if (mode === 'offline') {
-                                                            const updatedPlayers = [...players];
-                                                            const currentPlayerScore = updatedPlayers[currentPlayerIndex].score;
-                                                            updatedPlayers[currentPlayerIndex].score = Math.floor(currentPlayerScore / 2);
-                                                            setPlayers(updatedPlayers);
-                                                            setCurrentTurnScore(0);
-                                                        } else {
-                                                            const gameRef = db.collection('games').doc(roomCode);
-                                                            const player = players[currentPlayerIndex];
-                                                            const updatedPlayers = [...players];
-                                                            updatedPlayers[currentPlayerIndex] = { ...player, score: Math.floor(player.score / 2) };
-                                                            await gameRef.update({
-                                                                players: updatedPlayers,
-                                                                currentTurnScore: 0
-                                                            });
-                                                        }
+                                                    onClick={() => {
+                                                        const updatedPlayers = [...players];
+                                                        const currentPlayerScore = updatedPlayers[currentPlayerIndex].score;
+                                                        updatedPlayers[currentPlayerIndex].score = Math.floor(currentPlayerScore / 2);
+                                                        setPlayers(updatedPlayers);
+                                                        setCurrentTurnScore(0);
                                                     }}
-                                                    disabled={!isMyTurn()}
-                                                    className={`py-3 bg-red-700/80 hover:bg-red-700 text-white rounded font-medium transition-colors text-sm ${!isMyTurn() ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                    className="py-3 bg-red-700/80 hover:bg-red-700 text-white rounded font-medium transition-colors text-sm"
                                                 >
                                                     🤑 Greedy Farkle 🤑<br />½ Score
                                                 </button>
@@ -843,8 +530,8 @@
                                             <div className="max-w-xs mx-auto space-y-2">
                                                 <button
                                                     onClick={bankAndNext}
-                                                    disabled={currentTurnScore === 0 || !isMyTurn()}
-                                                    className={`w-full py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg font-bold text-base transition-colors flex items-center justify-center gap-2 ${!isMyTurn() ? 'opacity-50' : ''}`}
+                                                    disabled={currentTurnScore === 0}
+                                                    className="w-full py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg font-bold text-base transition-colors flex items-center justify-center gap-2"
                                                 >
                                                     Bank & Next Player
                                                     <ChevronRight size={16} />
@@ -852,8 +539,7 @@
 
                                                 <button
                                                     onClick={farkleAndNext}
-                                                    disabled={!isMyTurn()}
-                                                    className={`w-full py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold text-base transition-colors flex items-center justify-center gap-2 ${!isMyTurn() ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                    className="w-full py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold text-base transition-colors flex items-center justify-center gap-2"
                                                 >
                                                     Farkle! Next Player
                                                     <ChevronRight size={16} />
