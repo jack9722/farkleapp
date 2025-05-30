@@ -82,7 +82,7 @@
             const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0);
             const [currentTurnScore, setCurrentTurnScore] = useState(0);
             const [winningScore, setWinningScore] = useState(10000);
-            const [turnOrder, setTurnOrder] = useState([]); // New state for fixed turn order
+            const [turnOrder, setTurnOrder] = useState([]);
 
             // Add a new player
             const addPlayer = () => {
@@ -117,7 +117,7 @@
                             setTimeout(() => {
                                 setOrderSelecting(false);
                                 setGameStarted(true);
-                                setTurnOrder([...shuffled]); // Set the fixed turn order
+                                setTurnOrder([...shuffled]);
                                 setPlayers(shuffled.map(player => ({ ...player, score: 0 })));
                                 setCurrentPlayerIndex(0);
                                 setCurrentTurnScore(0);
@@ -374,23 +374,25 @@
 
                                 {/* Current Turn */}
                                 {currentPlayer && !winner && (
-                                    <div className="bg-white/10 backdrop-blur-md rounded-lg p-4 border border-white/20">
-                                        <div className="text-center mb-4">
-                                            <h3 className="text-white text-xl font-bold">{currentPlayer.name}'s Turn</h3>
-                                            <div className="mt-2 space-y-1">
-                                                <div className="text-3xl font-bold text-green-400">
-                                                    {currentTurnScore.toLocaleString()}
+                                    <div className="bg-white/10 backdrop-blur-md rounded-lg border border-white/20">
+                                        <div className="sticky top-0 bg-white/10 backdrop-blur-md rounded-t-lg border-b border-white/20 z-10">
+                                            <div className="text-center p-4">
+                                                <h3 className="text-white text-xl font-bold">{currentPlayer.name}'s Turn</h3>
+                                                <div className="mt-2 space-y-1">
+                                                    <div className="text-3xl font-bold text-green-400">
+                                                        {currentTurnScore.toLocaleString()}
+                                                    </div>
+                                                    <div className="text-white/70 text-sm">Turn Score</div>
+                                                    <div className="text-xl font-semibold text-blue-300">
+                                                        {(currentPlayer.score + currentTurnScore).toLocaleString()}
+                                                    </div>
+                                                    <div className="text-white/70 text-sm">Total if Banked</div>
                                                 </div>
-                                                <div className="text-white/70 text-sm">Turn Score</div>
-                                                <div className="text-xl font-semibold text-blue-300">
-                                                    {(currentPlayer.score + currentTurnScore).toLocaleString()}
-                                                </div>
-                                                <div className="text-white/70 text-sm">Total if Banked</div>
                                             </div>
                                         </div>
 
                                         {/* Quick Score Buttons */}
-                                        <div className="space-y-3 mb-4">
+                                        <div className="p-4 space-y-3">
                                             {/* Single Die Scores */}
                                             <div className="grid grid-cols-3 gap-2">
                                                 <button
