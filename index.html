@@ -74,59 +74,70 @@
             </svg>
         );
 
-        const FarkleScoreApp = () => {
-            const [players, setPlayers] = useState([]);
-            const [newPlayerName, setNewPlayerName] = useState('');
-            const [gameStarted, setGameStarted] = useState(false);
-            const [orderSelecting, setOrderSelecting] = useState(false);
-            const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0);
-            const [currentTurnScore, setCurrentTurnScore] = useState(0);
-            const [winningScore, setWinningScore] = useState(10000);
+const FarkleScoreApp = () => {
+    const [players, setPlayers] = useState([]);
+    const [newPlayerName, setNewPlayerName] = useState('');
+    const [gameStarted, setGameStarted] = useState(false);
+    const [orderSelecting, setOrderSelecting] = useState(false);
+    const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0);
+    const [currentTurnScore, setCurrentTurnScore] = useState(0);
+    const [winningScore, setWinningScore] = useState(10000);
 
-            // Add a new player
-            const addPlayer = () => {
-                if (newPlayerName.trim() && !gameStarted) {
-                    setPlayers([...players, { 
-                        id: Date.now(), 
-                        name: newPlayerName.trim(), 
-                        score: 0
-                    }]);
-                    setNewPlayerName('');
-                }
-            };
+    // Add a new player
+    const addPlayer = () => {
+        if (newPlayerName.trim() && !gameStarted) {
+            setPlayers([...players, { 
+                id: Date.now(), 
+                name: newPlayerName.trim(), 
+                score: 0
+            }]);
+            setNewPlayerName('');
+        }
+    };
 
-            // Start order selection animation
-            const selectOrder = () => {
-                if (players.length >= 2) {
-                    setOrderSelecting(true);
-                    
-                    // Animate the selection process
-                    let shuffleCount = 0;
-                    const maxShuffles = 15;
-                    
-                    const shuffleInterval = setInterval(() => {
-                        // Shuffle players array
-                        const shuffled = [...players].sort(() => Math.random() - 0.5);
-                        setPlayers(shuffled);
-                        shuffleCount++;
-                        
-                        if (shuffleCount >= maxShuffles) {
-                            clearInterval(shuffleInterval);
-                            // Final shuffle and start game
-                            setTimeout(() => {
-                                setOrderSelecting(false);
-                                setGameStarted(true);
-                                setPlayers(players.map(player => ({ ...player, score: 0 })));
-                                setCurrentPlayerIndex(0);
-                                setCurrentTurnScore(0);
-                            }, 500);
-                        }
-                    }, 150);
+    // Utility: True shuffle using Fisher-Yates
+    const shuffleArray = (array) => {
+        const result = [...array];
+        for (let i = result.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [result[i], result[j]] = [result[j], result[i]];
+        }
+        return result;
+    };
+
+    // Start order selection animation
+    const selectOrder = () => {
+        if (players.length >= 2) {
+            setOrderSelecting(true);
+
+            let shuffleCount = 0;
+            const maxShuffles = 15;
+
+            const shuffleInterval = setInterval(() => {
+                const visuallyShuffled = [...players].sort(() => Math.random() - 0.5);
+                setPlayers(visuallyShuffled);
+                shuffleCount++;
+
+                if (shuffleCount >= maxShuffles) {
+                    clearInterval(shuffleInterval);
+
+                    const finalShuffled = shuffleArray(players);
+
+                    setTimeout(() => {
+                        setOrderSelecting(false);
+                        setGameStarted(true);
+                        setPlayers(finalShuffled.map(player => ({ ...player, score: 0 })));
+                        setCurrentPlayerIndex(0);
+                        setCurrentTurnScore(0);
+                    }, 500);
                 }
-            };
+            }, 150);
+        }
+    };
 
             // Start game (replaced with order selection)
             const startGame = selectOrder;
+
 
             // Reset game
             const resetGame = () => {
@@ -430,6 +441,12 @@
                                                     className="py-3 bg-blue-600/80 hover:bg-blue-600 text-white rounded font-medium transition-colors text-sm"
                                                 >
                                                     Micro Straight<br />+150
+                                                </button>
+                                                <button
+                                                    onClick={) => updateTurnScore(1500)}
+                                                    className="py-3 bg-blue-600/80 hover:bg-blue-600 text-white rounded font-medium transition-colors text-sm col-span-2"
+                                                >
+                                                    Straight<br />+1500
                                                 </button>
                                             </div>
 
